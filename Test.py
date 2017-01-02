@@ -41,6 +41,7 @@ def get_stack_indiv_averages_test():
     event = "2016mihow"
     segmented = get_segmented_competition(event, segmenter)
     teleop_low_goal = Category(1, ScoreReq.INDIVIDUAL, MatchPhase.TELEOP, 'teleop low goal')
+    teleop_high_goal = Category(1, ScoreReq.INDIVI
     low_goal = segmented[teleop_low_goal]
     scouting = {}
     fill_in_stacking_indiv_scouting(low_goal, scouting)
