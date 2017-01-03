@@ -2,9 +2,12 @@ import requests
 import json
 import math
 
+import random
+
 from ScoreReq import *
 
-CLOSE_TO_ZERO = 0.001
+CLOSE_TO_ZERO = 0.01
+VERY_CLOSE_TO_ZERO = 0.001
 
 def get_segmented_competition(event, match_segmenter):
     URL_BASE = "https://www.thebluealliance.com/api/v2/event/%s/matches"
@@ -57,7 +60,7 @@ def get_stack_indiv_averages(segment_matches, scouting):
     #        result[team] = target(team, segment_matches, scouting)
     #    if(distance(prev, result) <= CLOSE_TO_ZERO)
     #        going = 0
-    return follow_target(result, segment_matches, stacking_indiv_target, scouting)
+    return follow_target(result, segment_matches, stacking_indiv_target, scouting, CLOSE_TO_ZERO)
 
 def stacking_indiv_target(team, segment_matches, scouting, curr_contrs):
     
@@ -119,9 +122,10 @@ def get_non_stacking_collab_probs(segment_matches, scouting): #scouting is a map
     result = {}
     for team in all_teams(segment_matches):
         result[team] = 0.5
-        
-    return follow_target(result, segment_matches, non_stacking_collab_target, scouting)
 
+    return follow_target(result, segment_matches, non_stacking_collab_target, scouting, VERY_CLOSE_TO_ZERO)
+
+#TODO add support for certainties in between 0.0 and 1.0
 def non_stacking_collab_target(team, segment_matches, scouting, curr_contrs): #scouting is a map from match numbers to maps from team-strings to tuples of whether the team did the task and the certainty
     successful_team_scouted = 0.0
     total_team_scouted = 0.0
@@ -129,65 +133,102 @@ def non_stacking_collab_target(team, segment_matches, scouting, curr_contrs): #s
     numerator = 0.0
     denominator = 0.0
 
+    total = 0
     for segment in segment_matches:
-        segment_scouting = scouting[segment.number]
+        if team in segment.teams:
+            total += 1
 
-        if segment_scouting[team][1] == 1.0:
-            if segment_scouting[team][0] == 1.0:
-               successful_team_scouted += 1
-            total_team_scouted += 0
-        else:
-            add_to_num = r
-            add_to_den = 1.0
-            r = segment.amount
-            for other_team in segment.teams:
-               if other_team != team:
-                   other_team_scouting = segment_scouting[other_team]
-                   scouted_contr = other_team_scouting[0]
-                   certainty = other_team_scouting[1]
-                   contr = curr_contrs[other_team]
-                   total_contr = certainty * scouted_contr + (1 - certainty) * contr
-                   add_to_num *= total_contr
-                   add_to_den *= total_contr ** 2
-            numerator += add_to_num
-            denominator += add_to_den
+            segment_scouting = scouting[segment.number]
 
-    total_segments = len(segment_matches)
-    team_scouted_prob = successful_team_scouted / total_team_scouted
+            if segment_scouting[team][1] > 0:
+                #if segment_scouting[team][0] == 1.0:
+                #   successful_team_scouted += 1
+                successful_team_scouted += segment_scouting[team][0]
+                total_team_scouted += 1
+            else:
+                add_to_den = 1.0
+                add_to_num = segment.amount
+                for other_team in segment.teams:
+                   if other_team != team:
+                       #print(other_team + " " + team)
+                       other_team_scouting = segment_scouting[other_team]
+                       scouted_contr = other_team_scouting[0]
+                       certainty = other_team_scouting[1]
+                       contr = curr_contrs[other_team]
+                       total_contr = certainty * scouted_contr + (1 - certainty) * contr
+
+                       add_to_num *= total_contr
+                       add_to_den *= total_contr * total_contr
+                numerator += add_to_num
+                denominator += add_to_den
+                #print("add to num: " + add_to_num.__str__())
+                #print("add to den: " + add_to_den.__str__())
+
+    #print("numerator: " + numerator.__str__() + " denominator: " + denominator.__str__())
+
+    total_segments = total
+
+    team_scouted_prob = 0
+    if total_team_scouted != 0:
+        team_scouted_prob = successful_team_scouted / total_team_scouted
+
+    if denominator == 0:
+        if total_team_scouted == 0:
+            return curr_contrs[team]
+        return team_scouted_prob
+        
     non_team_scouted_prob = numerator / denominator
+    
     if non_team_scouted_prob < 0:
         non_team_scouted_prob = 0
     elif non_team_scouted_prob > 1:
         non_team_scouted_prob = 1
         
     scouted_proportion = total_team_scouted / total_segments
+
+    #print(total_team_scouted.__str__())
+    
     return scouted_proportion * team_scouted_prob + (1 - scouted_proportion) * non_team_scouted_prob
-        
+
+def fill_non_stacking_collab_scouting(scouting, segment_matches):
+    for segment in segment_matches:
+        if not segment.number in scouting:
+            scouting[segment.number] = {}
+        match_scouting = scouting[segment.number]
+        for team in segment.teams:
+            if not team in match_scouting:
+                match_scouting[team] = (0.0, 0.0)
+    
 #end get_non_stack_collab_probs and sub-functions
 
 #get_non_stack_one_probs and sub-functions
-def get_non_stack_one_probs(segment_matches, scouting): # scouting is a dict from match-numbers to a dict fromt teams to whether the team did the task
+def get_non_stack_one_probs(segment_matches, scouting): #scouting is a dict from match-numbers to a dict fromt teams to whether the team did the task; if the team didn't get a chance to do the task, it isn't in scouting
     result = {}
     for team in all_teams(segment_matches):
-        result[team] = 0.5
+        result[team] = random.random()
+        #result[team] = 0.5
+
+    result = follow_target(result, segment_matches, non_stack_one_target, scouting, VERY_CLOSE_TO_ZERO)
+    return result
 
 def non_stack_one_target(team, segment_matches, scouting, contrs):
     
     def scouting_preprocess(team, segment_matches, scouting):
         result = []
         for segment in segment_matches:
-            segment_scouting = scouting[segment.number]
-            if team in segment_scouting:
-                result.append(SegmentMatch(segment.number, segment.category, segment_scouting[team], [team]))
-            else:
-                add = 1
-                for other_team in segment.teams:
-                    if other_team != team:
-                        if other_team in segment_scouting:
-                            if segment_scouting[other_team] == 1:
-                                add = 0
-            if add:
-                result.append(segment)
+            if team in segment.teams:
+                segment_scouting = scouting[segment.number]
+                if team in segment_scouting:
+                    result.append(SegmentMatch(segment.number, segment.category, segment_scouting[team], [team]))
+                else:
+                    add = 1
+                    for other_team in segment.teams:
+                        if other_team != team:
+                            if other_team in segment_scouting:
+                                if segment_scouting[other_team]:
+                                    add = 0
+                if add:
+                    result.append(segment)
         return result
 
     def error(team, segment_matches, contrs):
@@ -228,10 +269,10 @@ def non_stack_one_target(team, segment_matches, scouting, contrs):
             for segment in cumulative_segments:
                 succeeded += segment.amount
             prob = succeeded / len(cumulative_segments)
-            if prev_maximum < prob and prob < maximum:
-                result.append(prob)
+            #if prev_maximum < prob and prob < maximum:
+            result.append(prob)
         prev_maximum = maximum
-        cumulative_segments.append(segments_from_max(maximum))
+        cumulative_segments.extend(segments_from_max[maximum])
 
     if len(result) == 1:
         return result[0]
@@ -252,15 +293,19 @@ def non_stack_one_target(team, segment_matches, scouting, contrs):
     
 #end get_non_stack_one_probs and sub-functions
 
-def follow_target(start, segment_matches, target, scouting): #target is a function that returns the target
+def follow_target(start, segment_matches, target, scouting, min_move): #target is a function that returns the target
     result = start.copy()
     going = 1
     while going:
         prev = result.copy()
+        #new_result = {}
         for team in result:
             result[team] = target(team, segment_matches, scouting, result)
-        if distance(prev, result) <= CLOSE_TO_ZERO:
+        #if error != None:
+        #    print(error(result, scouting))
+        if distance(prev, result) <= min_move:
             going = 0
+        #result = new_result.copy()
     return result
 
 def fill_in_stacking_indiv_scouting(segmented, scouting): #scouting is a dict from match-numbers to dicts from team-strings to scouted contrs, certainties and durations
@@ -277,7 +322,7 @@ def distance(map_one, map_two):
     squared_diffs = 0
     for key in map_one:
         squared_diffs += (map_one[key] - map_two[key]) ** 2
-    return math.sqrt(squared_diffs)
+    return math.sqrt(squared_diffs / len(map_one))
 
 def all_teams(segment_matches):
     result = []
