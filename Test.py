@@ -19,20 +19,6 @@ def segmenter_test():
     print(len(result))
     print(result)
 
-def eq_test():
-    teleop_low_goal_category_one = Category(1, ScoreReq.INDIVIDUAL, MatchPhase.TELEOP, 'teleop low goal')
-    teleop_low_goal_category_two = Category(1, ScoreReq.INDIVIDUAL, MatchPhase.TELEOP, 'teleop low goal')
-    print(teleop_low_goal_category_one ==  teleop_low_goal_category_two)
-
-    number = 1
-    category = teleop_low_goal_category_one
-    amount = 2
-    teams = ['frc830', 'frc3880', 'frc123']
-
-    seg_one = SegmentMatch(number, category, amount, teams)
-    seg_two = SegmentMatch(number, category, amount, teams)
-    print(seg_one == seg_two)
-
 def stacking_indiv_target_finder_test(competition):
     segmenter = StrongholdMatchSegmenter()
     event = "2016mihow"
@@ -48,140 +34,115 @@ def repeat_test(times, chance_scouted, test):
         winsound.Beep(2500, 1000)
     return numpy.mean(stdevs)
 
-def one_test(chance_scouted):
+def collab_scouting_only_test(chance_scouted):
+    pass
+
+def get_competition(chance_scouted, category, get_match, fill_scouting):
     teams = []
     probs = {}
     for i in range(1, 41):#40 teams
         team = 'frc' + i.__str__()
         teams.append(team)
         probs[team] = random.random()
-
-    category = Category(0, ScoreReq.ALL, MatchPhase.TELEOP, 'collab')
-    segmented = []
-    scouting = {}
-    temp_teams = []
-    temp_teams.extend(teams)
-    for i in range(1, 161):#80 two-way matches    161
-        scouting[i] = {}
-        match_scouting = scouting[i]
-        
-        match_teams = random.sample(temp_teams, 3)
-        for team in match_teams:
-            temp_teams.remove(team)
-        if len(temp_teams) < 3:
-            temp_teams = []
-            temp_teams.extend(teams)
-        
-        #amount = 1
-        #for team in match_teams:
-        #    team_did = 0.0
-        #    if random.random() <= probs[team]:
-        #        team_did = 1.0
-        #    else:
-        #        amount = 0
-        #    if random.random() <= chance_scouted:
-        #        match_scouting[team] = (team_did, 1.0)   
-        max_team = match_teams[0]
-        max_prob = probs[max_team]
-        for team in match_teams:
-            if probs[team] > max_prob:
-                max_team = team
-                max_prob = probs[team]
-
-        amount = 0
-        if random.random() <= max_prob:
-            amount = 1
-
-        if random.random() <= chance_scouted:
-            match_scouting[max_team] = amount
-        
-        segmented.append(SegmentMatch(i, category, amount, match_teams))  
-
-    guessed_probs = get_non_stack_one_probs(segmented, scouting)
-    tot_error = 0
-    tot_squared_error = 0
-
-    for team in teams:
-        tp = probs[team]
-        gp = guessed_probs[team]
-
-        tot_error += abs(tp - gp)
-        tot_squared_error += (tp - gp) ** 2
-        
-    return math.sqrt(tot_squared_error / len(teams))
-
-def collab_test(chance_scouted):
-    teams = []
-    probs = {}
-    for i in range(1, 41):#40 teams
-        team = 'frc' + i.__str__()
-        teams.append(team)
-        probs[team] = min(random.random(), random.random(), random.random(), random.random())
     
-    category = Category(0, ScoreReq.ALL, MatchPhase.TELEOP, 'collab')
     segmented = []
     scouting = {}
     temp_teams = []
     temp_teams.extend(teams)
     for i in range(1, 161):#80 two-way matches   161
-        scouting[i] = {}
-        match_scouting = scouting[i]
-        
         match_teams = random.sample(temp_teams, 3)
         for team in match_teams:
             temp_teams.remove(team)
         if len(temp_teams) < 3:
             temp_teams = []
             temp_teams.extend(teams)
-        
-        #all_prob = 1.0
-        #for team in match_teams:
-        #    all_prob *= probs[team]
-        #amount = 0
-        #if random.random() <= all_prob:
-        #    amount = 1
-        amount = 1
-        team_dids = []
-        for team in match_teams:
-            team_did = 0.0
-            if random.random() <= probs[team]:
-                team_did = 1.0
-            else:
-                amount = 0
-            team_dids.append(team_did)
-            if random.random() <= chance_scouted:
-                match_scouting[team] = (team_did, 1.0)   
 
-        #print(team_dids.__str__() + " " + amount.__str__())
-        
-        segmented.append(SegmentMatch(i, category, amount, match_teams))  
+        add_match = get_match(i, category, chance_scouted, match_teams, probs)
+        segmented.append(add_match[0])
+        scouting[i] = add_match[1]  
 
-    fill_non_stacking_collab_scouting(scouting, segmented)
-    #print(scouting.__str__())
+    fill_scouting(scouting, segmented)
 
-    guessed_probs = get_non_stacking_collab_probs(segmented, scouting)
-    tot_error = 0
-    tot_squared_error = 0
+    return segmented, scouting, probs
 
+def get_collab_match(number, category, chance_scouted, teams, probs):
+    amount = 1
+    team_dids = []
+
+    match_scouting = {}
     for team in teams:
+        team_did = 0.0
+        if random.random() <= probs[team]:
+            team_did = 1.0
+        else:
+            amount = 0
+        team_dids.append(team_did)
+        if random.random() <= chance_scouted:
+            match_scouting[team] = (team_did, 1.0)   
+        
+    return SegmentMatch(number, category, amount, teams), match_scouting
+
+def get_one_match(number, category, chance_scouted, teams, probs):
+    max_team = teams[0]
+    max_prob = probs[max_team]
+    match_scouting = {}
+    for team in teams:
+        if probs[team] > max_prob:
+            max_team = team
+            max_prob = probs[team]
+
+    amount = 0
+    if random.random() <= max_prob:
+        amount = 1
+
+    if random.random() <= chance_scouted:
+        match_scouting[max_team] = amount
+        
+    return SegmentMatch(number, category, amount, teams), match_scouting
+
+def get_collab_competition(chance_scouted):
+    category = Category(0, ScoreReq.ALL, MatchPhase.TELEOP, 'collab')
+    get_match = get_collab_match
+    fill_scouting = fill_non_stacking_collab_scouting
+    return get_competition(chance_scouted, category, get_match, fill_scouting)
+
+def get_individual_non_stack_competition(chance_scouted):
+    category = Category(0, ScoreReq.INDIVIDUAL, MatchPhase.TELEOP, 'one')
+    get_match = get_one_match
+    fill_scouting = fill_one_scouting
+    return get_competition(chance_scouted, category, get_match, fill_scouting)
+
+def fill_one_scouting(a, b):
+    pass
+
+def get_stdev(probs, guessed_probs):
+    squared_errors = []
+
+    for team in probs:
         tp = probs[team]
         gp = guessed_probs[team]
 
-        tot_error += abs(tp - gp)
-        tot_squared_error += (tp - gp) ** 2
+        squared_errors.append((tp - gp) ** 2)
         
-        #print(team + " prob: " + tp.__str__() + " guessed: " + gp.__str__() + " squared error: " + ((tp - gp) ** 2).__str__())
+    return math.sqrt(numpy.mean(squared_errors))
 
-    #print("error: " + (tot_error / len(teams)).__str__() + " stdev: " + math.sqrt(tot_squared_error / len(teams)).__str__())
-    #print("\a\a\a")
-    return math.sqrt(tot_squared_error / len(teams))
+def one_test(chance_scouted):
+    result =  test(chance_scouted, get_individual_non_stack_competition, get_non_stack_one_probs)
+    print('done' + random.random().__str__())
+    return result
 
-def repeated_collab_test(times, chance_scouted):
-    stdevs = []
-    for i in range(0, times):
-        stdevs.append(collab_test(chance_scouted))
-    winsound.Beep(2500, 1000)
-    return numpy.mean(stdevs)
+def collab_test(chance_scouted):
+    return test(chance_scouted, get_collab_competition, get_non_stacking_collab_probs)
+
+def test(chance_scouted, get_competition, guess_probs):
+    comp = get_competition(chance_scouted)
+    segmented = comp[0]
+    scouting = comp[1]
+    probs = comp[2]
+
+    guessed_probs = guess_probs(segmented, scouting)
+
+    return get_stdev(probs, guessed_probs)
 
 def target_test():
     category = Category(0, ScoreReq.ALL, MatchPhase.TELEOP, 'collab')

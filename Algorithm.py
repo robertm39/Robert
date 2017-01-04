@@ -1,13 +1,15 @@
 import requests
 import json
 import math
-
 import random
 
+import numpy
+
 from ScoreReq import *
+from SegmentMatch import *
 
 CLOSE_TO_ZERO = 0.01
-VERY_CLOSE_TO_ZERO = 0.001
+VERY_CLOSE_TO_ZERO = 0.01
 
 def get_segmented_competition(event, match_segmenter):
     URL_BASE = "https://www.thebluealliance.com/api/v2/event/%s/matches"
@@ -123,6 +125,7 @@ def get_non_stacking_collab_probs(segment_matches, scouting): #scouting is a map
     for team in all_teams(segment_matches):
         result[team] = 0.5
 
+    #return result
     return follow_target(result, segment_matches, non_stacking_collab_target, scouting, VERY_CLOSE_TO_ZERO)
 
 #TODO add support for certainties in between 0.0 and 1.0
@@ -202,7 +205,7 @@ def fill_non_stacking_collab_scouting(scouting, segment_matches):
 #end get_non_stack_collab_probs and sub-functions
 
 #get_non_stack_one_probs and sub-functions
-def get_non_stack_one_probs(segment_matches, scouting): #scouting is a dict from match-numbers to a dict fromt teams to whether the team did the task; if the team didn't get a chance to do the task, it isn't in scouting
+def get_non_stack_one_probs(segment_matches, scouting): #scouting is a dict from match-numbers to a dict from teams to whether the team did the task; if the team didn't get a chance to do the task, it isn't in scouting
     result = {}
     for team in all_teams(segment_matches):
         result[team] = random.random()
@@ -211,86 +214,191 @@ def get_non_stack_one_probs(segment_matches, scouting): #scouting is a dict from
     result = follow_target(result, segment_matches, non_stack_one_target, scouting, VERY_CLOSE_TO_ZERO)
     return result
 
-def non_stack_one_target(team, segment_matches, scouting, contrs):
-    
-    def scouting_preprocess(team, segment_matches, scouting):
-        result = []
-        for segment in segment_matches:
-            if team in segment.teams:
-                segment_scouting = scouting[segment.number]
-                if team in segment_scouting:
-                    result.append(SegmentMatch(segment.number, segment.category, segment_scouting[team], [team]))
-                else:
-                    add = 1
-                    for other_team in segment.teams:
-                        if other_team != team:
-                            if other_team in segment_scouting:
-                                if segment_scouting[other_team]:
-                                    add = 0
-                if add:
-                    result.append(segment)
-        return result
-
-    def error(team, segment_matches, contrs):
+def non_stack_one_target(team, segment_matches, scouting, contrs, __cache = {}):
+    def error(prob):
+        o_contrs = contrs.copy()
+        o_contrs[team] = prob
+        
         result = 0
         for segment in segment_matches:
-            r = segment.amount
-            probs = []
-            for team in segment.teams:
-                probs.append(contrs[team])
-            prob = max(probs)
-            result += (r - prob) ** 2
+            if team in segment.teams:
+                match_scouting = scouting[segment.number]
+                #print(len(match_scouting).__str__())
+                if len(match_scouting) == 0:
+                    match_probs = []
+                    for other_team in segment.teams:
+                        match_probs.append(o_contrs[other_team])
+                    max_prob = max(match_probs)
+                    result += (segment.amount - max_prob) ** 2
+                else:
+                    scout_prob = 0
+                    
+                    for other_team in match_scouting:
+                        if other_team in segment.teams:
+                            scout_prob = o_contrs[other_team]
+                            result += (match_scouting[other_team] - scout_prob) ** 2
+                    for other_team in segment.teams:
+                        if not other_team in match_scouting:
+                            o_contr = o_contrs[other_team]
+                            result += (o_contr - min(o_contr, scout_prob)) ** 2
+                #if team in match_scouting:
+                #    result += (match_scouting[team] - prob) ** 2
+                #else:
+                #    none_scouted = 1
+                #    max_prob = 0
+                #    for other_team in segment.teams:
+                #        if not other_team == team:
+                #            if other_team in match_scouting:
+                #                result += (o_contrs[team] - min(o_contrs[team], match_scouting[other_team])) ** 2
+                #                none_scouted = 0
+                #            elif o_contrs[other_team] > max_prob:
+                #                max_prob = contrs[team]
+                #    if none_scouted: # and prob > max_prob
+                #        result += (segment.amount - max(o_contrs[team], max_prob)) ** 2
         return result
 
-    segment_matches = scouting_preprocess(team, segment_matches, scouting)
-    
-    maximums = []
-    segments_from_max = {}
+    partitions = [0.0, 1.0]
+    matches_from_maximums = {}
+    team_scouted_matches = []
     for segment in segment_matches:
-        other_contrs = []
-        for other_team in segment.teams:
-            if other_team != team:
-                other_contrs.append(contrs[other_team])
-        max_other_contrs = max(other_contrs)
-        if not max_other_contrs in segments_from_max:
-            segments_from_max[max_other_contrs] = []
-        segments_from_max[max_other_contrs].append(segment)
-        
-        if not max_other_contrs in maximums:
-            maximums.append(max_other_contrs)
-            
-    maximums.sort()
-    cumulative_segments = []
-    result = []
-    prev_maximum = 0
-    for maximum in maximums:
-        if len(cumulative_segments) > 0:
-            succeeded = 0
-            for segment in cumulative_segments:
-                succeeded += segment.amount
-            prob = succeeded / len(cumulative_segments)
-            #if prev_maximum < prob and prob < maximum:
-            result.append(prob)
-        prev_maximum = maximum
-        cumulative_segments.extend(segments_from_max[maximum])
+        if team in segment.teams:
+            segment_scouting = scouting[segment.number]
+            other_contrs = []
+            max_prob = 0
+            #if not team in segment_scouting:
+            none_scouted = 1
+            for other_team in segment.teams:
+                if not other_team == team:
+                    if other_team in segment_scouting:
+                        none_scouted = 0
+                        max_prob = segment_scouting[other_team]
+            if none_scouted:
+                for other_team in segment.teams:
+                    if not other_team == team:
+                        other_contrs.append(contrs[other_team])
+                max_prob = max(other_contrs)
+            if not max_prob in partitions:
+               partitions.append(max_prob)
+            if not max_prob in matches_from_maximums:
+                matches_from_maximums[max_prob] = []
+            if team in segment_scouting:
+                team_scouted_matches.append(segment)
+                for other_team in segment.teams:
+                    if not other_team == team:
+                        other_prob = contrs[other_team]
+                        if not other_prob in partitions:
+                            partitions.append(other_prob)
+                        if not other_prob in matches_from_maximums:
+                            matches_from_maximums[other_prob] = []
+            else:
+                matches_from_maximums[max_prob].append(segment)
 
-    if len(result) == 1:
-        return result[0]
-    if len(result) == 0:
-        raise RuntimeError("result: " + result.__str__())
-
-    min_error = len(segment_matches) + 1
-    lowest_error_target = result[0]
-    for target in result:
-        alt_contrs = contrs.copy()
-        alt_contrs[team] = target
-        t_error = error(team, segment_matches, alt_contrs)
-        if t_error < min_error:
-            min_error = t_error
-            lowest_error_target = target
-
-    return lowest_error_target
+    #if not 1.0 in partitions:
+    #    partitions.append(1.0)
+    if not 1.0 in matches_from_maximums:
+        matches_from_maximums[1.0] = []
+    if not 0.0 in matches_from_maximums:
+        matches_from_maximums[0.0] = []
     
+    partitions.sort()
+
+    prev_max = 0.0
+    #if 0.0 in partitions:
+    #    partitions.remove(0.0)
+
+    relevant_matches = []
+    relevant_matches.extend(team_scouted_matches)
+    #if 0.0 in matches_from_maximums:
+    #    relevant_matches.extend(matches_from_maximums[0.0])
+
+    poss_probs = [0.0, 1.0]
+    for maximum in partitions:
+        if len(relevant_matches) > 0:
+            num = 0
+            den = 0
+            #print("between " + prev_max.__str__() + " and " + maximum.__str__())
+            
+            for match in relevant_matches:
+                match_scouting = scouting[match.number]
+                den += 1
+                if team in match_scouting:
+                    #print("scouted")
+                    num += match_scouting[team]
+                    #other_probs = []
+                    for other_team in match.teams:
+                        if not other_team == team:
+                            other_prob = contrs[other_team]
+                            if maximum <= other_prob:
+                                num += other_prob
+                                den += 1
+                            #other_probs.append(contrs[other_team])
+                    #max_other_prob = max(other_probs)
+                    #if(maximum <= max_other_prob):
+                    #    num += max_other_prob
+                    #    den += 1
+                else:
+                    none_scouted = 1
+                    for other_team in segment.teams:
+                        if not other_team == team:
+                            if other_team in match_scouting:
+                                none_scouted = 0
+                                num += contrs[other_team]
+                    if none_scouted:
+                        num += match.amount
+        
+            prob = num / den
+            #print("num: " + num.__str__() + " den: " + len(relevant_matches).__str__() + " prob:" + prob.__str__())
+            #print("")
+            
+            #if prev_max <= prob <= maximum:
+            poss_probs.append(prob)
+        relevant_matches.extend(matches_from_maximums[maximum])
+        prev_max = maximum
+
+    #print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+    #old_poss_probs = []
+    #old_poss_probs.extend(poss_probs)
+    #poss_probs.extend(partitions)
+
+    this_target = 0
+    #poss_probs = []
+    #for i in range(0, 101):
+    #    poss_probs.append(i * 0.01)
+    #for i in range(-20, 21):
+    #    #print(i.__str__())
+    #    poss_probs.append(contrs[team] + i * 0.001)
+    
+    if len(poss_probs) == 1:
+        this_target = poss_probs[0]
+    elif len(poss_probs) > 1:
+        lowest_err_prob = poss_probs[0]
+        min_err = len(segment_matches) + 1
+        for poss_prob in poss_probs:
+            err = error(poss_prob)
+            if err < min_err:
+                min_err = err
+                lowest_err_prob = poss_prob
+        this_target = lowest_err_prob
+        
+    elif len(poss_probs) == 0:
+        this_target = 0
+
+    if not team in __cache:
+        __cache[team] = this_target
+        return this_target
+    prev = __cache[team]
+
+    weight = 2
+    return_target = (weight * prev + this_target) / (weight + 1)
+    __cache[team] = return_target
+
+    #if not this_target in old_poss_probs:
+    #    print("partition target")
+    #print(this_target.__str__())
+    #print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+    
+    return return_target
+
 #end get_non_stack_one_probs and sub-functions
 
 def follow_target(start, segment_matches, target, scouting, min_move): #target is a function that returns the target
@@ -301,6 +409,11 @@ def follow_target(start, segment_matches, target, scouting, min_move): #target i
         #new_result = {}
         for team in result:
             result[team] = target(team, segment_matches, scouting, result)
+
+        #display = ""
+        #for team in result:
+        #    display += team + " " + result[team].__str__() + "\t"
+        #print(display)
         #if error != None:
         #    print(error(result, scouting))
         if distance(prev, result) <= min_move:
