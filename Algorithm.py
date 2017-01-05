@@ -40,14 +40,93 @@ def get_team_prob_distrs(segment_matches, scouting): #for stacking indivs, scout
         if category.stacking:
             return get_stack_indiv_distrs(segment_matches, scouting)
         else:
-            return get_non_stack_one_probs(segment_matches, scouting)
+            return probs_to_distrs(get_non_stack_one_probs(segment_matches, scouting))
     elif not category.stacking and category.score_req == ScoreReq.ALL:
-        return get_non_stacking_collab_probs(segment_matches, scouting)
+        return probs_to_distrs(get_non_stacking_collab_probs(segment_matches, scouting))
 
-def get_stack_indiv_distrs(segment_matches, scouting):
+def get_stack_indiv_distrs(segment_matches, scouting): #distrs is a map from teams to maps from maps from names to outcomes to probs
     averages = get_stack_indiv_averages(segment_matches, scouting)
-    stdevs = get_stdevs(averages, segment_matches)
+    stdevs = get_stdevs(averages, segment_matches, scouting)
+    name = segment_matches[0].category.name
+    pre_distrs = get_normal_distrs(averages, stdevs)
+    distrs = {}
+    for team in pre_distrs:
+        team_distrs = {}
+        for value in pre_distrs[team]:
+            prob = pre_distrs[team][value]
+            team_distrs[value] = prob
+        distrs[team][name] = team_distrs
+    return distrs
 
+def get_normal_distrs(averages, stdevs):
+    distrs = {}
+    for team in averages:
+        mean = averages[team]
+        stdev = stdevs[team]
+        distrs[team] = get_normal_distr(mean, stdev)
+    return distrs
+
+def get_normal_distr(mean, stdev):
+    maximum = mean + 2 * stdev
+    minimum = mean - 2 * stdev
+    scores = []
+    for i in range(0, ceil[maximum]);
+        partitions.append(i)
+    result = {}
+    probs = []
+    for score in scores:
+        min_amount = max(minimum, score - 0.5)
+        max_amount = min(maximum, score + 0.5)
+        prob = norm_a_to_b(mean, stdev, min_amount, max_amount)
+        probs.append(prob)
+        result[score] = prob
+    total = math.fsum(probs)
+    for prob in result:
+        result[prob] = result[prob] / total
+    return result
+
+def norm_a_to_b(mean, stdev, a, b):
+    if b < a:
+        raise RuntimeError("b: " + b.__str__() + " a: " + a.__str__())
+    return 0.5 * math.sqrt(math.pi) * (math.erf((mean - b) / stdev) - math.erf((mean - a) / stdev))
+
+#get_stdevs and sub-functions
+def get_stdevs(averages, segment_matches, scouting):
+    team_amounts = {}
+    for match in segment_matches:
+        team_scores = team_scores(averages, match, scouting)
+        for team in team_scores:
+            if not team in team_amounts:
+                team_amounts[team] = [team_scores[team]]
+            else:
+                team_amounts[team].append(team_scores[team])
+    team_stdevs = {}
+    for team in team_amounts:
+        team_stdevs[team] = numpy.std(team_amounts[team])
+    return team_stdevs
+
+def team_scores(averages, match, scouting):
+    team_scores = {}
+    total = 0
+    match_scouting = scouting[match.number]
+    for team in match.teams:
+        team_scouting = match_scouting[team]
+        scouted = team_scouting[0]
+        cert = team_scouting[1]
+        dur = team_scouting[2]
+        contr = averages[team]
+        team_scores[team] = dur * (scouted * cert + contr * (1 - cert))
+        total += team_scores[team]
+    ratio = match.amount / total
+    for team in team_scores:
+        if match_scouting[team][2] == 0:
+            team_scores.pop(team)
+        else:
+            team_scores[team] = team_scores[team] * ratio
+    return team_scores
+        
+#end get_stdevs and sub-functions
+        
 #get_stack_indiv_averages and sub-functions
 def get_stack_indiv_averages(segment_matches, scouting):
     result = {}
@@ -55,13 +134,6 @@ def get_stack_indiv_averages(segment_matches, scouting):
     for team in all_teams(segment_matches):
         result[team] = average
 
-    #going = 1
-    #while going:
-    #    prev = result.copy()
-    #    for team in result:
-    #        result[team] = target(team, segment_matches, scouting)
-    #    if(distance(prev, result) <= CLOSE_TO_ZERO)
-    #        going = 0
     return follow_target(result, segment_matches, stacking_indiv_target, scouting, CLOSE_TO_ZERO)
 
 def stacking_indiv_target(team, segment_matches, scouting, curr_contrs):
@@ -318,9 +390,9 @@ def non_stack_one_target(team, segment_matches, scouting, contrs, __cache = {}):
             den = 0
             #print("between " + prev_max.__str__() + " and " + maximum.__str__())
             
-            for match in relevant_matches:
+            for match in relevant_matches: #relevant_matches
                 match_scouting = scouting[match.number]
-                den += 1
+                #den += 1
                 if team in match_scouting:
                     #print("scouted")
                     num += match_scouting[team]
@@ -342,16 +414,26 @@ def non_stack_one_target(team, segment_matches, scouting, contrs, __cache = {}):
                         if not other_team == team:
                             if other_team in match_scouting:
                                 none_scouted = 0
-                                num += contrs[other_team]
+                                if maximum <= contrs[other_team]:
+                                    num += contrs[other_team]
+                                    den += 1
                     if none_scouted:
-                        num += match.amount
+                        other_probs = []
+                        for other_team in segment.teams:
+                            if not other_team == team:
+                                other_probs.append(contrs[other_team])
+                        max_other_prob = max(other_probs)
+                        if prev_max >= max_other_prob:
+                            num += match.amount
+                            den += 1
         
-            prob = num / den
             #print("num: " + num.__str__() + " den: " + len(relevant_matches).__str__() + " prob:" + prob.__str__())
             #print("")
             
             #if prev_max <= prob <= maximum:
-            poss_probs.append(prob)
+            if den > 0:
+                prob = num / den
+                poss_probs.append(prob)
         relevant_matches.extend(matches_from_maximums[maximum])
         prev_max = maximum
 
@@ -420,6 +502,13 @@ def follow_target(start, segment_matches, target, scouting, min_move): #target i
             going = 0
         #result = new_result.copy()
     return result
+
+def probs_to_distrs(probs, name):
+    distrs = {}
+    for team in probs:
+        prob = probs[team]
+        distrs[team] = {name: {0.0:(1 - prob), 1.0:prob}}#{{name:0.0}:(1 - prob), {name:1.0}:prob}
+    return distrs
 
 def fill_in_stacking_indiv_scouting(segmented, scouting): #scouting is a dict from match-numbers to dicts from team-strings to scouted contrs, certainties and durations
     for segment in segmented:
