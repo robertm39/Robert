@@ -77,7 +77,7 @@ def get_collab_match(number, category, chance_scouted, teams, probs):
         else:
             amount = 0
         team_dids.append(team_did)
-        if random.random() <= chance_scouted:
+        if random.random() < chance_scouted:
             match_scouting[team] = (team_did, 1.0)   
         
     return SegmentMatch(number, category, amount, teams), match_scouting
@@ -95,7 +95,7 @@ def get_one_match(number, category, chance_scouted, teams, probs):
     if random.random() <= max_prob:
         amount = 1
 
-    if random.random() <= chance_scouted:
+    if random.random() < chance_scouted:
         match_scouting[max_team] = amount
         
     return SegmentMatch(number, category, amount, teams), match_scouting
