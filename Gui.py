@@ -150,16 +150,19 @@ class ZScoutFrame(Frame):
             else:
                 self.cached_matches[key] = pd.combine_predictions(prediction, self.cached_matches[key])
             self.last_key = key
-            print(self.cached_matches[key])
+            #print(self.cached_matches[key])
             show_graph()
 
         def show_graph():
             if self.last_key != "":
                 if self.has_graph:
-                    self.ascii_graph.forget_pack()
+                    self.ascii_graph.pack_forget()
+                    #self.ascii_graph.forget_pack()
                 #print(self.cached_matches[self.last_key])
-                self.ascii_graph = DataPanel(self, self.cached_matches[self.last_key][0])
+                #self.ascii_graph = AsciiDataPanel(self, self.cached_matches[self.last_key][0])
+                self.ascii_graph = GraphDataPanel(self, self.cached_matches[self.last_key][0])
                 self.ascii_graph.pack(side=TOP, pady=3)
+                self.has_graph = True
         #end predicting methods
         
         self.parent.title("ZScout")
@@ -185,6 +188,7 @@ class ZScoutFrame(Frame):
         #make graph frame
 
         #vars
+        self.has_graph = False
         self.cached_matches = {}
         read_cached_matches()
         self.last_key = ""
@@ -197,7 +201,7 @@ class ZScoutFrame(Frame):
         self.team_numbers_label = Label(self.graph_frame, text="Team Number(s):")
         self.team_numbers_label.pack(side=TOP, padx=5, pady=5)
         
-        self.team_numbers_field = Entry(self.graph_frame)
+        self.team_numbers_field = Entry(self.graph_frame, width=29)
         self.team_numbers_field.pack(side=TOP, padx=5, pady=5)
 
         self.do_prediction_button = Button(self.graph_frame, text="Do Prediction", command=do_prediction)
@@ -228,59 +232,168 @@ class ZScoutFrame(Frame):
         
         #end make scouting frame
 
-class DataPanel(Frame):
+def is_full_match(matches):
+    result = False
+    for match in matches:
+        if match[1] != 0:
+            result = True
+    return result
+
+##class AsciiDataPanel(Frame):
+##
+##    def __init__(self, parent, match_data):
+##        def get_margin(match):
+##            return match[0] - match[1]
+##        
+##        def data_sort(m_1):
+##            return get_margin(m_1)
+##
+##        #self.pack(fill=BOTH, expand=True)
+##
+##        #super(DataPanel, self).__init__(parent, background="white")
+##        Frame.__init__(self, parent, background="white")   
+##        
+##        self.data = match_data
+##        match_keys = []
+##        match_keys.extend(self.data.keys())
+##        match_keys.sort(key=data_sort)
+##
+##        is_full_match = False
+##        for match in match_keys:
+##            if match[1] != 0:
+##                is_full_match = True
+##
+##        if True: #is_full_match:
+##            margins = []
+##            probs_from_margins = {}
+##            for match in match_keys:
+##                margin = get_margin(match)
+##                if not margin in probs_from_margins:
+##                    probs_from_margins[margin] = self.data[match]
+##                else:
+##                    probs_from_margins[margin] += self.data[match]
+##                if not margin in margins:
+##                    margins.append(margin)
+##            min_margin = min(margins)
+##            max_margin = max(margins)
+##
+##            lines = []
+##            lengths = []
+##            for margin in range(min_margin, max_margin + 1):
+##                g_text = margin.__str__()
+##                prob = 0
+##                if margin in margins:
+##                    prob = probs_from_margins[margin]
+##                total = 0
+##                for i in range(0, round(prob * 50)):
+##                    total += 1
+##                    g_text += "]"
+##                for i in range(total, 50):
+##                    g_text += " "
+##                g_text += " " + prob.__str__()
+##                
+##                lines.append(g_text)
+##                lengths.append(len(g_text))
+##                #label = Label(self, text=g_text)
+##                #label.pack(side=TOP, padx=5, pady=3)
+##            max_len = max(lengths)
+##            for line in lines:
+##                for i in range(0, max_len - len(line)):
+##                    line += "  "
+##                label = Label(self, text=line)
+##                label.pack(side=TOP, padx=5, pady=3)
+##                
+class GraphDataPanel(Frame):
 
     def __init__(self, parent, match_data):
+        self.pad = 2
+        
         def get_margin(match):
             return match[0] - match[1]
         
         def data_sort(m_1):
             return get_margin(m_1)
 
-        #self.pack(fill=BOTH, expand=True)
-
-        #super(DataPanel, self).__init__(parent, background="white")
-        Frame.__init__(self, parent, background="white")   
+        def get_x(margin):
+            return PIX_PER_PROB * (NUM_PROBS // 2 + 1) + (margin + self.pad) * PIX_PER_PROB
         
-        self.data = match_data
+        Frame.__init__(self, parent, background="white")
+
+        HEIGHT = 300
+        PIX_PER_PROB = 3
+        NUM_PROBS = 401
+        
+        self.canvas = Canvas(self, width=(NUM_PROBS + self.pad*2)*PIX_PER_PROB + 1, height=HEIGHT, bd=1, bg="white")
+        self.canvas.pack(side=TOP)
+
         match_keys = []
-        match_keys.extend(self.data.keys())
+        match_keys.extend(match_data.keys())
         match_keys.sort(key=data_sort)
 
-        is_full_match = False
+        margins = []
+        probs_from_margins = {}
+
+        light_gray = "#eff0f2"
+        
+        for margin in range(-(NUM_PROBS // 2), NUM_PROBS // 2 + 1, 5):
+            #x = PIX_PER_PROB * (NUM_PROBS // 2 + 1) + margin * PIX_PER_PROB
+            x = get_x(margin)
+            top = 15
+            self.canvas.create_line(x, HEIGHT, x, top, fill = light_gray)
+            if margin % 10 == 0:
+                self.canvas.create_text(x, 8, text=margin)
+        self.canvas.create_line(0, HEIGHT, get_x(205), HEIGHT)
+        #self.canvas.create_text(PIX_PER_PROB * (NUM_PROBS // 2 + 1), 8, text="0")
+        
         for match in match_keys:
-            if match[1] != 0:
-                is_full_match = True
+            margin = get_margin(match)
+            if not margin in probs_from_margins:
+                probs_from_margins[margin] = match_data[match]
+            else:
+                probs_from_margins[margin] += match_data[match]
+            if not margin in margins:
+                margins.append(margin)
+        print("")
 
-        if True: #is_full_match:
-            margins = []
-            probs_from_margins = {}
-            for match in match_keys:
-                margin = get_margin(match)
-                if not margin in probs_from_margins:
-                    probs_from_margins[margin] = self.data[match]
-                else:
-                    probs_from_margins[margin] += self.data[match]
-                if not margin in margins:
-                    margins.append(margin)
-            min_margin = min(margins)
-            max_margin = max(margins)
+        def get_graph_y(prob):
+            if prob == 0:
+                return HEIGHT
+            return min(300, round(HEIGHT - prob * HEIGHT))
+        
+        for margin in margins:
+            prev_prob = probs_from_margins.get(margin - 1, 0)
+            prob = probs_from_margins[margin]
+            next_prob = probs_from_margins.get(margin + 1, 0)
+            #print(prob)
 
-            for margin in range(min_margin, max_margin + 1):
-                g_text = margin.__str__()
-                prob = 0
-                if margin in margins:
-                    prob = probs_from_margins[margin]
-                total = 0
-                for i in range(0, round(prob * 50)):
-                    total += 1
-                    g_text += "]"
-                for i in range(total, 50):
-                    g_text += " "
-                g_text += " " + prob.__str__()
-                label = Label(self, text=g_text)
-                label.pack(side=TOP, padx=5, pady=3)
-                
+            #prev_y = round(HEIGHT - prev_prob * HEIGHT)
+            #y = round(HEIGHT - prob * HEIGHT)
+            #next_y = round(HEIGHT - next_prob * HEIGHT)
+            prev_y = get_graph_y(prev_prob)
+            y = get_graph_y(prob)
+            next_y = get_graph_y(next_prob)
+
+            print("prob: " + prob.__str__() + " y: " + y.__str__())
+            
+            x = get_x(margin)
+            #x = PIX_PER_PROB * (NUM_PROBS // 2 + 1) + margin * PIX_PER_PROB
+
+            r_fill=""
+            if margin > 0:
+                r_fill = "red"
+            elif margin < 0:
+                r_fill = "blue"
+            else:
+                r_fill = "magenta"
+
+            if not y == 300:
+                self.canvas.create_rectangle(x-1, HEIGHT, x+1, y, fill=r_fill) 
+                self.canvas.create_line(x-1, y, x+1, y)
+
+                if y < prev_y:
+                    self.canvas.create_line(x-1, y, x-1, prev_y)
+                if y < next_y:
+                    self.canvas.create_line(x+1, y, x+1, next_y)
 
 def main():
     root = Tk()

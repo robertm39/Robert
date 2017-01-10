@@ -121,10 +121,22 @@ def get_stack_indiv_stdevs(averages, segment_matches, scouting):
                 team_amounts[team].append(team_scores[team])
     team_stdevs = {}
     for team in team_amounts:
-        team_stdevs[team] = numpy.std(team_amounts[team])
-        if team_stdevs[team] >= 5:
-            for team_amount in team_amounts[team]:
-                print(team_amount)
+        squ_err = 0
+        mean = numpy.mean(team_amounts[team])
+        for amount in team_amounts[team]:
+            floored = math.floor(amount)
+            lower = amount - floored
+            upper = 1 - lower
+
+            squ_err += (1 - lower) * (floored - mean) ** 2
+            squ_err += (1 - upper) * (floored + 1 - mean) ** 2
+        team_stdevs[team] = math.sqrt(squ_err / len(team_amounts[team]))
+        if team == 'frc830':
+            print(team_stdevs[team])
+        #team_stdevs[team] = numpy.std(team_amounts[team])
+        #if team_stdevs[team] >= 5:
+        #    for team_amount in team_amounts[team]:
+        #        print(team_amount)
     #print("got stdevs")
     return team_stdevs
 
