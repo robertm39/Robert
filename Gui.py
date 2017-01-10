@@ -56,12 +56,42 @@ class ZScoutFrame(Frame):
             elif string == "autonBouldersHigh":
                 return Category(True, ScoreReq.INDIVIDUAL, MatchPhase.AUTON, 'auton high goal')
             raise RuntimeError("string: " + string)
-            
+
+        #game methods
+        def get_segmenter():
+            if self.year == "2016":
+                return StrongholdMatchSegmenter()
+            elif self.year == "2017":
+                return None #can't wait to see what this one will be
+            return None
+
+        def get_evaluate():
+            if self.year == "2016":
+                return evaluate_stronghold_match
+            elif self.year == "2017":
+                return None #can't wait to see what this one will be
+            return None
+
+        def get_categories():
+            if self.year == "2016":
+                result = []
+                result.append(category_from_string("teleopBouldersLow"))
+                result.append(category_from_string("teleopBouldersHigh"))
+                result.append(category_from_string("autonBouldersLow"))
+                result.append(category_from_string("autonBouldersHigh"))
+                return result
+            elif self.year == "2017":
+                return None #can't wait to see what this one will be
+            return None
+        #end game methods
+        
         #scouting methods
         def set_comp():
             self.comp = self.comp_choose.get()
+            self.year = self.comp[:4]
+            print(self.year)
             
-            segmenter = StrongholdMatchSegmenter()
+            segmenter = get_segmenter()
             segmented = get_segmented_competition(self.comp, segmenter)
             #print(segmented)
             #print("")
@@ -165,7 +195,7 @@ class ZScoutFrame(Frame):
 
             #print(red_teams.__str__() + " " + blue_teams.__str__())
             #print(red_teams)
-            prediction = pd.predict_match(red_teams, blue_teams, evaluate_stronghold_match, TRIALS)
+            prediction = pd.predict_match(red_teams, blue_teams, get_evaluate(), TRIALS)
             #print(red_teams)
             key = self.comp, tuple(o_red_teams), tuple(o_blue_teams)
             #print(teams_tuple.__repr__())
@@ -218,6 +248,7 @@ class ZScoutFrame(Frame):
         self.cached_matches = {}
         read_cached_matches()
         self.last_key = ""
+        self.year = ""
         #end vars
         
         self.graph_frame = Frame(self, relief=RAISED, borderwidth=1)
