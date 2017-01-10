@@ -48,7 +48,7 @@ def predict_match(red_teams, blue_teams, evaluate_match, trials):
     '''
 
     #print("predict match")
-    #print(red_teams)
+    #print("red: " + red_teams.__str__() + " blue: " + blue_teams.__str__())
     o_red_teams = get_teams_from_team_maps(red_teams)
     o_blue_teams = get_teams_from_team_maps(blue_teams)
     matches = {}

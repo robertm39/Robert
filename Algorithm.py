@@ -48,6 +48,9 @@ def get_team_prob_distrs(segment_matches, scouting): #for stacking indivs, scout
 
 def get_stack_indiv_distrs(segment_matches, scouting): #distrs is a map from teams to maps from maps from names to outcomes to probs
     averages = get_stack_indiv_averages(segment_matches, scouting)
+    #print(segment_matches[0].category)
+    #for team in averages:
+    #    print(team + " " + averages[team].__str__())
     stdevs = get_stack_indiv_stdevs(averages, segment_matches, scouting)
     name = segment_matches[0].category.name
     pre_distrs = get_normal_distrs(averages, stdevs)
@@ -59,6 +62,8 @@ def get_stack_indiv_distrs(segment_matches, scouting): #distrs is a map from tea
             team_distrs[value] = prob
         sub_distrs = {}
         sub_distrs[name] = team_distrs
+        #if name == "auton low goal":
+        #    print(team_distrs)
         distrs[team] = sub_distrs
     return distrs
 
@@ -76,17 +81,23 @@ def get_normal_distrs(averages, stdevs):
         mean = averages[team]
         stdev = stdevs[team]
         #if team == 'frc830':
-        #    print(stdev)
+        #print(team + " mean: " + mean.__str__() + " stdev: " + stdev.__str__())
         distrs[team] = get_normal_distr(mean, stdev)
     return distrs
 
 def get_normal_distr(mean, stdev):
+    if stdev == 0:
+        return {mean: 1.0}
+    
     maximum = mean + 2 * stdev
     minimum = mean - 2 * stdev
     minimum = max(-0.5, minimum)
     scores = []
-    for i in range(0, math.ceil(maximum)):
+    for i in range(0, math.ceil(maximum) + 1):
         scores.append(i)
+    #if len(scores) == 0:
+    #    print("mean: " + mean.__str__() + " stdev: " + stdev.__str__())
+    #    print("min: " + minimum.__str__() + " max: " + maximum.__str__())
     result = {}
     probs = []
     #print("minimum: " + minimum.__str__() + " maximum: " + maximum.__str__())
@@ -101,6 +112,14 @@ def get_normal_distr(mean, stdev):
     total = math.fsum(probs)
     for prob in result:
         result[prob] = result[prob] / total
+
+    #if len(result) == 0:
+    #    print("mean: " + mean.__str__() + " stdev: " + stdev.__str__())
+    #    print("min: " + minimum.__str__() + " max: " + maximum.__str__())
+    #    print("scores: " + scores.__str__())
+        
+    #print(result)
+    #print("")
     return result
 
 def norm_a_to_b(mean, stdev, a, b):
@@ -131,8 +150,8 @@ def get_stack_indiv_stdevs(averages, segment_matches, scouting):
             squ_err += (1 - lower) * (floored - mean) ** 2
             squ_err += (1 - upper) * (floored + 1 - mean) ** 2
         team_stdevs[team] = math.sqrt(squ_err / len(team_amounts[team]))
-        if team == 'frc830':
-            print(team_stdevs[team])
+        #if team == 'frc830':
+        #    print(team_stdevs[team])
         #team_stdevs[team] = numpy.std(team_amounts[team])
         #if team_stdevs[team] >= 5:
         #    for team_amount in team_amounts[team]:
@@ -183,6 +202,18 @@ def get_team_scores(averages, match, scouting): #fix
             team_scores[team] = team_score
             total += team_score
     pre_total = total
+
+    #if match.amount == 0:
+    #    for team in team_scores:
+    #        team_scores[team] = 0
+    #    return team_scores
+    #print((total * 1).__str__())
+    if total == 0:
+        for team in team_scores:
+            team_scores[team] = match.amount / 3
+        #print(team_scores)
+        return team_scores  
+    
     going = 1
     while going:
         ratio = match.amount / total

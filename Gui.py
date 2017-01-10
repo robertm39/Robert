@@ -109,12 +109,36 @@ class ZScoutFrame(Frame):
                 red_total += 2 * team_outcome[category_from_string("teleopBouldersLow")]
                 red_total += 5 * team_outcome[category_from_string("teleopBouldersHigh")]
 
+                red_total += 5 * team_outcome[category_from_string("autonBouldersLow")]
+                red_total += 10 * team_outcome[category_from_string("autonBouldersHigh")]
+
             blue_total = 0
             for team in blue_teams:
                 team_outcome = outcome[team]
                 blue_total += 2 * team_outcome[category_from_string("teleopBouldersLow")]
                 blue_total += 5 * team_outcome[category_from_string("teleopBouldersHigh")]
+                
+                blue_total += 5 * team_outcome[category_from_string("autonBouldersLow")]
+                blue_total += 10 * team_outcome[category_from_string("autonBouldersHigh")]
             return red_total, blue_total
+
+        def get_key():
+            tokens = self.team_numbers_field.get().split()
+            reached_vs = False
+            red_teams = []
+            blue_teams = []
+            
+            for token in tokens:
+                if token == 'vs' or token == 'vs.':
+                    reached_vs = True
+                else:
+                    team = 'frc' + token
+                    if not reached_vs:
+                        red_teams.append(team)
+                    else:
+                        blue_teams.append(team)
+
+            return self.comp, tuple(red_teams), tuple(blue_teams)
                 
         def do_prediction():
             o_red_teams = []
@@ -125,7 +149,7 @@ class ZScoutFrame(Frame):
             tokens = self.team_numbers_field.get().split()
             reached_vs = False
 
-            TRIALS = 10000 #10,000
+            TRIALS = 100000 #100,000
 
             for token in tokens:
                 if token == 'vs' or token == 'vs.':
@@ -154,13 +178,15 @@ class ZScoutFrame(Frame):
             show_graph()
 
         def show_graph():
-            if self.last_key != "":
+            key = get_key()
+            #if self.last_key != "":
+            if not key == "":
                 if self.has_graph:
                     self.ascii_graph.pack_forget()
                     #self.ascii_graph.forget_pack()
                 #print(self.cached_matches[self.last_key])
                 #self.ascii_graph = AsciiDataPanel(self, self.cached_matches[self.last_key][0])
-                self.ascii_graph = GraphDataPanel(self, self.cached_matches[self.last_key][0])
+                self.ascii_graph = GraphDataPanel(self, self.cached_matches[key][0])
                 self.ascii_graph.pack(side=TOP, pady=3)
                 self.has_graph = True
         #end predicting methods
@@ -316,6 +342,11 @@ class GraphDataPanel(Frame):
 
         def get_x(margin):
             return PIX_PER_PROB * (NUM_PROBS // 2 + 1) + (margin + self.pad) * PIX_PER_PROB
+
+        def get_y(prob):
+            if prob == 0:
+                return HEIGHT
+            return min(300, round(HEIGHT - prob * HEIGHT))
         
         Frame.__init__(self, parent, background="white")
 
@@ -333,16 +364,27 @@ class GraphDataPanel(Frame):
         margins = []
         probs_from_margins = {}
 
-        light_gray = "#eff0f2"
+        light_gray = "#efefef"
+        darker_gray = "#dfdfdf"
+        even_darker_gray = "#9f9f9f"
         
         for margin in range(-(NUM_PROBS // 2), NUM_PROBS // 2 + 1, 5):
             #x = PIX_PER_PROB * (NUM_PROBS // 2 + 1) + margin * PIX_PER_PROB
             x = get_x(margin)
             top = 15
-            self.canvas.create_line(x, HEIGHT, x, top, fill = light_gray)
+
             if margin % 10 == 0:
+                if margin == 0:
+                    self.canvas.create_line(x, HEIGHT, x, top, fill = even_darker_gray)
+                else:
+                    self.canvas.create_line(x, HEIGHT, x, top, fill = darker_gray)
                 self.canvas.create_text(x, 8, text=margin)
+            else:
+                self.canvas.create_line(x, HEIGHT, x, top, fill = light_gray)
         self.canvas.create_line(0, HEIGHT, get_x(205), HEIGHT)
+        self.canvas.create_line(0, get_y(0.75), get_x(205), get_y(0.75), fill = light_gray)
+        self.canvas.create_line(0, get_y(0.5), get_x(205), get_y(0.5), fill = light_gray)
+        self.canvas.create_line(0, get_y(0.25), get_x(205), get_y(0.25), fill = light_gray)
         #self.canvas.create_text(PIX_PER_PROB * (NUM_PROBS // 2 + 1), 8, text="0")
         
         for match in match_keys:
@@ -353,7 +395,7 @@ class GraphDataPanel(Frame):
                 probs_from_margins[margin] += match_data[match]
             if not margin in margins:
                 margins.append(margin)
-        print("")
+        #print("")
 
         def get_graph_y(prob):
             if prob == 0:
@@ -369,11 +411,11 @@ class GraphDataPanel(Frame):
             #prev_y = round(HEIGHT - prev_prob * HEIGHT)
             #y = round(HEIGHT - prob * HEIGHT)
             #next_y = round(HEIGHT - next_prob * HEIGHT)
-            prev_y = get_graph_y(prev_prob)
-            y = get_graph_y(prob)
-            next_y = get_graph_y(next_prob)
+            prev_y = get_y(prev_prob)
+            y = get_y(prob)
+            next_y = get_y(next_prob)
 
-            print("prob: " + prob.__str__() + " y: " + y.__str__())
+            #print("prob: " + prob.__str__() + " y: " + y.__str__())
             
             x = get_x(margin)
             #x = PIX_PER_PROB * (NUM_PROBS // 2 + 1) + margin * PIX_PER_PROB
