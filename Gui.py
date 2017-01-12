@@ -165,33 +165,19 @@ class ZScoutFrame(Frame):
         
         def get_outcome(team_outcome, string, banned):
             if get_pretty_string(string) in banned:
-                #if string == "teleopBouldersHigh":
-                #    print(get_pretty_string(string))
                 return 0
             return team_outcome[category_from_string(string)]
         
         def evaluate_stronghold_match(outcome, red_teams, blue_teams, scenario=()):
             red_total = 0
-            #print(outcome)
-            #print(scenario)
             for team in red_teams:
                 team_outcome = outcome[team]
 
                 red_total += 2 * get_outcome(team_outcome, "teleopBouldersLow", scenario)
-                #print(red_total)
                 red_total += 5 * get_outcome(team_outcome, "teleopBouldersHigh", scenario)
 
                 red_total += 5 * get_outcome(team_outcome, "autonBouldersLow", scenario)
                 red_total += 10 * get_outcome(team_outcome, "autonBouldersHigh", scenario)
-
-                #print(red_total)
-                #print("")
-                #if not "teleopBouldersLow" in scenario:
-                #red_total += 2 * team_outcome[category_from_string("teleopBouldersLow")]
-                #red_total += 5 * team_outcome[category_from_string("teleopBouldersHigh")]
-                #
-                #red_total += 5 * team_outcome[category_from_string("autonBouldersLow")]
-                #red_total += 10 * team_outcome[category_from_string("autonBouldersHigh")]
 
             blue_total = 0
             for team in blue_teams:
@@ -202,11 +188,6 @@ class ZScoutFrame(Frame):
 
                 red_total += 5 * get_outcome(team_outcome, "autonBouldersLow", scenario)
                 red_total += 10 * get_outcome(team_outcome, "autonBouldersHigh", scenario)
-                #blue_total += 2 * team_outcome[category_from_string("teleopBouldersLow")]
-                #blue_total += 5 * team_outcome[category_from_string("teleopBouldersHigh")]
-                #
-                #blue_total += 5 * team_outcome[category_from_string("autonBouldersLow")]
-                #blue_total += 10 * team_outcome[category_from_string("autonBouldersHigh")]
             return red_total, blue_total
 
         def get_banned_cats():
