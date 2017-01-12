@@ -39,7 +39,7 @@ def get_probs_from_team_maps(teams):
         result.append(teams[team])
     return result
 
-def predict_match(red_teams, blue_teams, evaluate_match, trials):
+def predict_match(red_teams, blue_teams, evaluate_match, trials, scenario=()):
     '''
     red_teams: (team -> (category -> (amount -> prob)))
     blue_teams:(team -> (category -> (amount -> prob)))
@@ -68,7 +68,7 @@ def predict_match(red_teams, blue_teams, evaluate_match, trials):
         #for t in blue_teams:
         #    o_blue_teams.append(get_team_from_team_map(t))
         
-        match = evaluate_match(outcome, o_red_teams, o_blue_teams)
+        match = evaluate_match(outcome, o_red_teams, o_blue_teams, scenario)
         if not match in matches:
             matches[match] = 1
         else:
