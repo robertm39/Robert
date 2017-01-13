@@ -11,6 +11,8 @@ from Category import *
 from MatchPhase import *
 from ScoreReq import *
 import Predictor as pd
+import MatchEvaluators
+
 
 class CannotGetCompetitionError(BaseException):
     pass
@@ -50,16 +52,16 @@ class ZScoutFrame(Frame):
             self.active_frame = frame
         #end frame methods
 
-        def category_from_string(string):
-            if string == "teleopBouldersLow":
-                return Category(True, ScoreReq.INDIVIDUAL, MatchPhase.TELEOP, 'teleop low goal')
-            elif string == "teleopBouldersHigh":
-                return Category(True, ScoreReq.INDIVIDUAL, MatchPhase.TELEOP, 'teleop high goal')
-            elif string == "autonBouldersLow":
-                return Category(True, ScoreReq.INDIVIDUAL, MatchPhase.AUTON, 'auton low goal')
-            elif string == "autonBouldersHigh":
-                return Category(True, ScoreReq.INDIVIDUAL, MatchPhase.AUTON, 'auton high goal')
-            raise RuntimeError("string: " + string)
+##        def category_from_string(string):
+##            if string == "teleopBouldersLow":
+##                return Category(True, ScoreReq.INDIVIDUAL, MatchPhase.TELEOP, 'teleop low goal')
+##            elif string == "teleopBouldersHigh":
+##                return Category(True, ScoreReq.INDIVIDUAL, MatchPhase.TELEOP, 'teleop high goal')
+##            elif string == "autonBouldersLow":
+##                return Category(True, ScoreReq.INDIVIDUAL, MatchPhase.AUTON, 'auton low goal')
+##            elif string == "autonBouldersHigh":
+##                return Category(True, ScoreReq.INDIVIDUAL, MatchPhase.AUTON, 'auton high goal')
+##            raise RuntimeError("string: " + string)
 
         #game methods
         def get_segmenter():
@@ -72,19 +74,21 @@ class ZScoutFrame(Frame):
             return None
 
         def get_evaluate():
+            if len(get_categories()) - len(get_banned_cats()) == 1:
+                return MatchEvaluators.null_evaluate
             if self.year == "2016":
-                return evaluate_stronghold_match
+                return MatchEvaluators.evaluate_stronghold_match
             elif self.year == "2017":
-                return None #can't wait to see what this one will be
+                return MatchEvaluators.evaluate_steamworks_match #yaaaaay
             return None
 
         def get_categories():
             if self.year == "2016":
                 result = []
-                result.append(category_from_string("teleopBouldersLow"))
-                result.append(category_from_string("teleopBouldersHigh"))
-                result.append(category_from_string("autonBouldersLow"))
-                result.append(category_from_string("autonBouldersHigh"))
+                result.append(MatchEvaluators.category_from_string("teleopBouldersLow"))
+                result.append(MatchEvaluators.category_from_string("teleopBouldersHigh"))
+                result.append(MatchEvaluators.category_from_string("autonBouldersLow"))
+                result.append(MatchEvaluators.category_from_string("autonBouldersHigh"))
                 return result
             elif self.year == "2017":
                 return None #can't wait to see what this one will be
@@ -168,27 +172,27 @@ class ZScoutFrame(Frame):
                 return 0
             return team_outcome[category_from_string(string)]
         
-        def evaluate_stronghold_match(outcome, red_teams, blue_teams, scenario=()):
-            red_total = 0
-            for team in red_teams:
-                team_outcome = outcome[team]
-
-                red_total += 2 * get_outcome(team_outcome, "teleopBouldersLow", scenario)
-                red_total += 5 * get_outcome(team_outcome, "teleopBouldersHigh", scenario)
-
-                red_total += 5 * get_outcome(team_outcome, "autonBouldersLow", scenario)
-                red_total += 10 * get_outcome(team_outcome, "autonBouldersHigh", scenario)
-
-            blue_total = 0
-            for team in blue_teams:
-                team_outcome = outcome[team]
-
-                red_total += 2 * get_outcome(team_outcome, "teleopBouldersLow", scenario)
-                red_total += 5 * get_outcome(team_outcome, "teleopBouldersHigh", scenario)
-
-                red_total += 5 * get_outcome(team_outcome, "autonBouldersLow", scenario)
-                red_total += 10 * get_outcome(team_outcome, "autonBouldersHigh", scenario)
-            return red_total, blue_total
+##        def evaluate_stronghold_match(outcome, red_teams, blue_teams, scenario=()):
+##            red_total = 0
+##            for team in red_teams:
+##                team_outcome = outcome[team]
+##
+##                red_total += 2 * get_outcome(team_outcome, "teleopBouldersLow", scenario)
+##                red_total += 5 * get_outcome(team_outcome, "teleopBouldersHigh", scenario)
+##
+##                red_total += 5 * get_outcome(team_outcome, "autonBouldersLow", scenario)
+##                red_total += 10 * get_outcome(team_outcome, "autonBouldersHigh", scenario)
+##
+##            blue_total = 0
+##            for team in blue_teams:
+##                team_outcome = outcome[team]
+##
+##                red_total += 2 * get_outcome(team_outcome, "teleopBouldersLow", scenario)
+##                red_total += 5 * get_outcome(team_outcome, "teleopBouldersHigh", scenario)
+##
+##                red_total += 5 * get_outcome(team_outcome, "autonBouldersLow", scenario)
+##                red_total += 10 * get_outcome(team_outcome, "autonBouldersHigh", scenario)
+##            return red_total, blue_total
 
         def get_banned_cats():
             return self.category_frame.get_banned_categories()
@@ -384,8 +388,10 @@ class CategoryChooserPanel(Frame):
         
 class GraphDataPanel(Frame):
 
-    def __init__(self, parent, match_data, g_height=300, pix_per_prob=3, num_probs=401):
+    def __init__(self, parent, match_data, g_height=300, pix_per_prob=3, text_pad=15, num_probs=401):
         self.pad = 2
+        
+        tot_height = g_height + text_pad
         
         def get_margin(match):
             return match[0] - match[1]
@@ -398,25 +404,27 @@ class GraphDataPanel(Frame):
 
         def get_y(prob):
             if prob == 0:
-                return g_height
-            return min(300, round(g_height - prob * g_height))
+                return tot_height
+            return  min(g_height, round(g_height - prob * g_height)) + text_pad
         
         Frame.__init__(self, parent, background="white")
-
+        
         #HEIGHT = 300
         #PIX_PER_PROB = 3
         #NUM_PROBS = 401
         
-        self.canvas = Canvas(self, width=(num_probs + self.pad*2)*pix_per_prob + 1, height=g_height, bd=1, bg="white")
+        self.canvas = Canvas(self, width=(num_probs + self.pad*2)*pix_per_prob + 1, height=tot_height, bd=1, bg="white")
         self.canvas.pack(side=TOP)
-
+        
         match_keys = []
         match_keys.extend(match_data.keys())
         match_keys.sort(key=data_sort)
-
+        
         margins = []
         probs_from_margins = {}
 
+        h_w = pix_per_prob // 2
+        
         light_gray = "#efefef"
         darker_gray = "#dfdfdf"
         even_darker_gray = "#9f9f9f"
@@ -428,13 +436,13 @@ class GraphDataPanel(Frame):
 
             if margin % 10 == 0:
                 if margin == 0:
-                    self.canvas.create_line(x, g_height, x, top, fill = even_darker_gray)
+                    self.canvas.create_line(x, tot_height, x, top, fill = even_darker_gray)
                 else:
-                    self.canvas.create_line(x, g_height, x, top, fill = darker_gray)
+                    self.canvas.create_line(x, tot_height, x, top, fill = darker_gray)
                 self.canvas.create_text(x, 8, text=margin)
             else:
-                self.canvas.create_line(x, g_height, x, top, fill = light_gray)
-        self.canvas.create_line(0, g_height, get_x(205), g_height)
+                self.canvas.create_line(x, tot_height, x, top, fill = light_gray)
+        self.canvas.create_line(0, tot_height, get_x(205), tot_height)
         self.canvas.create_line(0, get_y(0.75), get_x(205), get_y(0.75), fill = light_gray)
         self.canvas.create_line(0, get_y(0.5), get_x(205), get_y(0.5), fill = light_gray)
         self.canvas.create_line(0, get_y(0.25), get_x(205), get_y(0.25), fill = light_gray)
@@ -448,22 +456,12 @@ class GraphDataPanel(Frame):
                 probs_from_margins[margin] += match_data[match]
             if not margin in margins:
                 margins.append(margin)
-        #print("")
-
-        def get_graph_y(prob):
-            if prob == 0:
-                return g_height
-            return min(300, round(g_height - prob * g_height))
-        
+        #print(h_w)
         for margin in margins:
             prev_prob = probs_from_margins.get(margin - 1, 0)
             prob = probs_from_margins[margin]
             next_prob = probs_from_margins.get(margin + 1, 0)
-            #print(prob)
-
-            #prev_y = round(HEIGHT - prev_prob * HEIGHT)
-            #y = round(HEIGHT - prob * HEIGHT)
-            #next_y = round(HEIGHT - next_prob * HEIGHT)
+            
             prev_y = get_y(prev_prob)
             y = get_y(prob)
             next_y = get_y(next_prob)
@@ -481,14 +479,14 @@ class GraphDataPanel(Frame):
             else:
                 r_fill = "magenta"
 
-            if not y == 300:
-                self.canvas.create_rectangle(x-1, g_height, x+1, y, fill=r_fill) 
-                self.canvas.create_line(x-1, y, x+1, y)
-
-                if y < prev_y:
-                    self.canvas.create_line(x-1, y, x-1, prev_y)
-                if y < next_y:
-                    self.canvas.create_line(x+1, y, x+1, next_y)
+            if not y == tot_height:
+                self.canvas.create_rectangle(x-h_w, tot_height, x+h_w, y, fill=r_fill) 
+                #self.canvas.create_line(x-h_w, y, x+h_w, y)
+                
+                #if y < prev_y:
+                #    self.canvas.create_line(x-h_w, y, x-h_w, prev_y)
+                #if y < next_y:
+                #    self.canvas.create_line(x+h_w, y, x+h_w, next_y)
 
 def main():
     root = Tk()

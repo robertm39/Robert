@@ -1,5 +1,9 @@
 import math
 
+from Category import Category
+from ScoreReq import ScoreReq
+from MatchPhase import MatchPhase
+
 def get_categories():
     if self.year == "2016":
         result = []
@@ -12,6 +16,16 @@ def get_categories():
         return None #can't wait to see what this one will be
     return None
 
+def get_ugly_string(string):
+    if string == "teleop low goal":
+        return "teleopBouldersLow"
+    elif string == "teleop high goal":
+        return "teleopBouldersHigh"
+    elif string == "auton low goal":
+        return "autonBouldersLow"
+    elif string == "auton high goal":
+        return "autonBouldersHigh"
+
 def get_pretty_string(string):
     if string == "teleopBouldersLow":
         return "teleop low goal"
@@ -22,10 +36,32 @@ def get_pretty_string(string):
     elif string == "autonBouldersHigh":
         return "auton high goal"
 
+def category_from_string(string):
+    if string == "teleopBouldersLow":
+        return Category(True, ScoreReq.INDIVIDUAL, MatchPhase.TELEOP, 'teleop low goal')
+    elif string == "teleopBouldersHigh":
+        return Category(True, ScoreReq.INDIVIDUAL, MatchPhase.TELEOP, 'teleop high goal')
+    elif string == "autonBouldersLow":
+        return Category(True, ScoreReq.INDIVIDUAL, MatchPhase.AUTON, 'auton low goal')
+    elif string == "autonBouldersHigh":
+        return Category(True, ScoreReq.INDIVIDUAL, MatchPhase.AUTON, 'auton high goal')
+    raise RuntimeError("string: " + string)
+
 def get_outcome(team_outcome, string, banned):
     if get_pretty_string(string) in banned:
         return 0
     return team_outcome[category_from_string(string)]
+
+def null_evaluate(outcome, red_teams, blue_teams, scenario=()):
+    def one_side(teams):
+        total = 0
+        for team in teams:
+            for cat in outcome[team]:
+                print("cat: " + cat.__str__())
+                total += get_outcome(outcome[team], get_ugly_string(cat.name), scenario)
+        return total
+
+    return one_side(red_teams), one_side(blue_teams)
 
 def evaluate_stronghold_match(outcome, red_teams, blue_teams, scenario=()):
     def one_side(teams):
@@ -106,7 +142,7 @@ def evaluate_steamworks_match(outcome, red_teams, blue_teams, scenario=()):
         if "elims" in scenario:
             if num_hang >= 3:
                 total += 100
-            if kpa >= 40
+            if kpa >= 40:
                 total += 20
 
         return total, foul
