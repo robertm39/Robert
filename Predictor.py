@@ -39,7 +39,17 @@ def get_probs_from_team_maps(teams):
         result.append(teams[team])
     return result
 
-def predict_match(red_teams, blue_teams, evaluate_match, trials, scenario=()):
+#scenarios
+def allocate_one_each(teams):
+    pass
+
+def get_extra_scenario(year, red_teams, blue_teams):
+    if year == "2016":
+        pass
+
+#end scenarios
+
+def generic_predict_match(red_teams, blue_teams, evaluate_match, trials, scenario, year):
     '''
     red_teams: (team -> (category -> (amount -> prob)))
     blue_teams:(team -> (category -> (amount -> prob)))

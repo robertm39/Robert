@@ -18,7 +18,7 @@ VERY_CLOSE_TO_ZERO = 0.01
 ULTRA_CLOSE_TO_ZERO = 0.000001
 
 URL_BASE = "https://www.thebluealliance.com/api/v2/"
-HEADER = {"X-TBA-App-Id":"FRC830:z_scout:test"}
+HEADER = {"X-TBA-App-Id":"FRC830:z_scout:1.0"}
 
 comp_cache_initialized = False
 comp_cache = {}
@@ -95,31 +95,13 @@ def get_competition(event): #add error handling for when there's no internet
             return result
         except requests.exceptions.ConnectionError:
             return None
-            
-    #ULR_EXT = "event/%s/matches"
-    #source = (URL_BASE + URL_EXT) % event
-    #r = requests.get(source, headers = HEADER)
-    #return r.json()
 
-##def get_segmented_competition(event, match_segmenter):
-##    #ULR_EXT = "event/%s/matches"
-##    ##HEADER = {"X-TBA-App-Id":"FRC830:z_scout:test"}
-##    #source = (URL_BASE + URL_EXT) % event
-##    #r = requests.get(source, headers = HEADER)
-##    #data = r.json()
-##    data = get_competition(event)
-##    result = {}
-##    for match in data:
-##        if(match['comp_level'] == 'qm'):
-##            segments = match_segmenter.segment(match)
-##            for segment_match in segments:
-##                for key in segment_match:
-##                    if not (key in result):
-##                        result[key] = []
-##                    add = segment_match[key]
-##                    if(not add in result[key]):
-##                        result[key].append(add)
-##    return result, data
+def get_matches_before(competition, match_number):
+    result = []
+    for match in competition:
+        if match["match_number"] < match_number:
+            result.append(match)
+    return result
 
 def segment_competition(competition, segmenter):
     result = {}

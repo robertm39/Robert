@@ -52,17 +52,6 @@ class ZScoutFrame(Frame):
             self.active_frame = frame
         #end frame methods
 
-##        def category_from_string(string):
-##            if string == "teleopBouldersLow":
-##                return Category(True, ScoreReq.INDIVIDUAL, MatchPhase.TELEOP, 'teleop low goal')
-##            elif string == "teleopBouldersHigh":
-##                return Category(True, ScoreReq.INDIVIDUAL, MatchPhase.TELEOP, 'teleop high goal')
-##            elif string == "autonBouldersLow":
-##                return Category(True, ScoreReq.INDIVIDUAL, MatchPhase.AUTON, 'auton low goal')
-##            elif string == "autonBouldersHigh":
-##                return Category(True, ScoreReq.INDIVIDUAL, MatchPhase.AUTON, 'auton high goal')
-##            raise RuntimeError("string: " + string)
-
         #game methods
         def get_segmenter():
             if self.year == "2016":
@@ -81,6 +70,12 @@ class ZScoutFrame(Frame):
             elif self.year == "2017":
                 return MatchEvaluators.evaluate_steamworks_match #yaaaaay
             return None
+
+        def get_predict_match():
+            if self.year == "2016":
+                return pd.generic_predict_match
+            elif self.year == "2017":
+                return pd.generic_predict_match
 
         def get_categories():
             if self.year == "2016":
@@ -171,28 +166,6 @@ class ZScoutFrame(Frame):
             if get_pretty_string(string) in banned:
                 return 0
             return team_outcome[category_from_string(string)]
-        
-##        def evaluate_stronghold_match(outcome, red_teams, blue_teams, scenario=()):
-##            red_total = 0
-##            for team in red_teams:
-##                team_outcome = outcome[team]
-##
-##                red_total += 2 * get_outcome(team_outcome, "teleopBouldersLow", scenario)
-##                red_total += 5 * get_outcome(team_outcome, "teleopBouldersHigh", scenario)
-##
-##                red_total += 5 * get_outcome(team_outcome, "autonBouldersLow", scenario)
-##                red_total += 10 * get_outcome(team_outcome, "autonBouldersHigh", scenario)
-##
-##            blue_total = 0
-##            for team in blue_teams:
-##                team_outcome = outcome[team]
-##
-##                red_total += 2 * get_outcome(team_outcome, "teleopBouldersLow", scenario)
-##                red_total += 5 * get_outcome(team_outcome, "teleopBouldersHigh", scenario)
-##
-##                red_total += 5 * get_outcome(team_outcome, "autonBouldersLow", scenario)
-##                red_total += 10 * get_outcome(team_outcome, "autonBouldersHigh", scenario)
-##            return red_total, blue_total
 
         def get_banned_cats():
             return self.category_frame.get_banned_categories()
@@ -226,7 +199,7 @@ class ZScoutFrame(Frame):
 
             TRIALS = 100000 #100,000
 
-            #banned_cats = self.category_frame.get_banned_categories()
+
             banned_cats = get_banned_cats()
             scenario = []
             for cat in banned_cats:
@@ -244,30 +217,25 @@ class ZScoutFrame(Frame):
                         o_blue_teams.append(team)
                         blue_teams[team] = self.contrs_from_team_from_category[team]
 
-            #print(red_teams.__str__() + " " + blue_teams.__str__())
-            #print(red_teams)
-            prediction = pd.predict_match(red_teams, blue_teams, get_evaluate(), TRIALS, scenario)
-            #print(red_teams)
+            predict_match = get_predict_match()
+            prediction = predict_match(red_teams, blue_teams, get_evaluate(), TRIALS, scenario, self.year)
+            
             key = self.comp, tuple(o_red_teams), tuple(o_blue_teams), scenario
-            #print(teams_tuple.__repr__())
+            
             if not key in self.cached_matches:
                 self.cached_matches[key] = prediction
             else:
                 self.cached_matches[key] = pd.combine_predictions(prediction, self.cached_matches[key])
             self.last_key = key
-            #print(self.cached_matches[key])
+            
             show_graph()
 
         def show_graph():
             key = get_key()
-            #key = self.last_key
-            #if self.last_key != "":
             if not key == "":
                 if self.has_graph:
                     self.ascii_graph.pack_forget()
-                    #self.ascii_graph.forget_pack()
-                #print(self.cached_matches[self.last_key])
-                #self.ascii_graph = AsciiDataPanel(self, self.cached_matches[self.last_key][0])
+
                 self.ascii_graph = GraphDataPanel(self.graph_container, self.cached_matches[key][0])
                 self.ascii_graph.pack(side=TOP, pady=3)
                 self.has_graph = True
@@ -318,6 +286,10 @@ class ZScoutFrame(Frame):
         
         self.show_button = Button(self.graph_frame, text="Show Graph", command=show_graph)
         self.show_button.pack(side=TOP, padx=5, pady=5)
+
+        self.graph_type = StringVar()
+        self.margins_button = RadioButton(self.graph_frame, text="Margin Graph", var=self.graph_type, value="margin")
+        
         
         self.categories_container = Frame(self.graph_frame)
         self.categories_container.pack(side=TOP, pady=3)
@@ -388,7 +360,7 @@ class CategoryChooserPanel(Frame):
         
 class GraphDataPanel(Frame):
 
-    def __init__(self, parent, match_data, g_height=300, pix_per_prob=3, text_pad=15, num_probs=401):
+    def __init__(self, parent, match_data, g_height=300, pix_per_prob=3, text_pad=30, num_probs=401):
         self.pad = 2
         
         tot_height = g_height + text_pad
