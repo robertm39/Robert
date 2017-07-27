@@ -3,29 +3,29 @@ import math
 import winsound
 import numpy
 
-from StrongholdMatchSegmenter import *
-from Algorithm import *
-from SegmentMatch import *
-from Category import *
-from MatchPhase import *
-from ScoreReq import *
+from StrongholdMatchSegmenter import StrongholdMatchSegmenter
+import Algorithm as al
+#from SegmentMatch import SegmentMatch
+#from Category import Category
+#from MatchPhase import MatchPhase
+from utils import SegmentMatch, Category, MatchPhase
 
 def segmenter_test():
     segmenter = StrongholdMatchSegmenter()
     event = "2016mihow"
-    segmented = get_segmented_competition(event, segmenter)
+    segmented = al.get_segmented_competition(event, segmenter)
     teleop_low_goal_category = Category(1, ScoreReq.INDIVIDUAL, MatchPhase.TELEOP, 'teleop low goal')
     result = segmented[teleop_low_goal_category]
     print(len(result))
     print(result)
 
-def stacking_indiv_target_finder_test(competition):
-    segmenter = StrongholdMatchSegmenter()
-    event = "2016mihow"
-    segmented = get_segmented_competition(event, segmenter)
-    teleop_low_goal = Category(1, ScoreReq.INDIVIDUAL, MatchPhase.TELEOP, 'teleop low goal')
-    low_goal = segmented[teleop_low_goal]
-    #high_goal = segment
+#def stacking_indiv_target_finder_test(competition):
+#    segmenter = StrongholdMatchSegmenter()
+#    event = "2016mihow"
+#    segmented = al.get_segmented_competition(event, segmenter)
+#    teleop_low_goal = Category(1, ScoreReq.INDIVIDUAL, MatchPhase.TELEOP, 'teleop low goal')
+#    low_goal = segmented[teleop_low_goal]
+#    #high_goal = segment
 
 def collab_scouting_only_test(chance_scouted):
     pass
@@ -33,7 +33,7 @@ def collab_scouting_only_test(chance_scouted):
 def get_competition(chance_scouted, category, get_match, fill_scouting, get_contr = random.random):
     teams = []
     probs = {}
-    for i in range(1, 41):#40 teams
+    for i in range(1, 41):  #40 teams   41
         team = 'frc' + i.__str__()
         teams.append(team)
         probs[team] = get_contr()
@@ -42,7 +42,7 @@ def get_competition(chance_scouted, category, get_match, fill_scouting, get_cont
     scouting = {}
     temp_teams = []
     temp_teams.extend(teams)
-    for i in range(1, 161):#80 two-way matches   161
+    for i in range(1, 161): #80 two-way matches   161
         match_teams = random.sample(temp_teams, 3)
         for team in match_teams:
             temp_teams.remove(team)
@@ -114,7 +114,7 @@ def get_stack_indiv_competition(chance_scouted):
     category = Category(1, ScoreReq.INDIVIDUAL, MatchPhase.TELEOP, "indiv stacking")
     get_match = get_stacking_indiv_match
     get_contr = get_stack_indiv_contr
-    fill_scouting = fill_in_stacking_indiv_scouting
+    fill_scouting = al.fill_in_stacking_indiv_scouting
     return get_competition(chance_scouted, category, get_match, fill_scouting, get_contr)
 
 def get_stack_indiv_error(contrs, guessed_contrs):
@@ -139,10 +139,10 @@ def get_stack_indiv_average(stdevs):
     return (numpy.mean(av_stdevs), numpy.mean(stdev_stdevs))
 
 def stack_indiv_test(chance_scouted):
-    return test(chance_scouted, get_stack_indiv_competition, get_stack_indiv_averages_and_stdevs, get_stack_indiv_error)
+    return test(chance_scouted, get_stack_indiv_competition, al.get_stack_indiv_averages_and_stdevs, get_stack_indiv_error)
 
 def repeat_stack_indiv_test(times, chance_scouted):
-    GLOBAl_COUNT = 0
+    #GLOBAl_COUNT = 0
     return repeat_test(times, chance_scouted, stack_indiv_test, get_stack_indiv_average)
     
 #end indiv_stack
@@ -168,11 +168,11 @@ def get_collab_match(number, category, chance_scouted, teams, probs):
 def get_collab_competition(chance_scouted):
     category = Category(0, ScoreReq.ALL, MatchPhase.TELEOP, 'collab')
     get_match = get_collab_match
-    fill_scouting = fill_non_stacking_collab_scouting
+    fill_scouting = al.fill_non_stacking_collab_scouting
     return get_competition(chance_scouted, category, get_match, fill_scouting)
 
 def collab_test(chance_scouted):
-    return test(chance_scouted, get_collab_competition, get_non_stacking_collab_probs)
+    return test(chance_scouted, get_collab_competition, al.get_non_stacking_collab_probs)
 #end collab
 
 #indiv non-stack
@@ -201,7 +201,7 @@ def get_individual_non_stack_competition(chance_scouted):
     return get_competition(chance_scouted, category, get_match, fill_scouting)
 
 def one_test(chance_scouted):
-    result =  test(chance_scouted, get_individual_non_stack_competition, get_non_stack_one_probs)
+    result =  test(chance_scouted, get_individual_non_stack_competition, al.get_non_stack_one_probs)
     print('done' + random.random().__str__())
     return result
 
@@ -250,8 +250,8 @@ def target_test():
     segmented.append(SegmentMatch(1, category, r0, ['a', 'b0', 'c0']))
     segmented.append(SegmentMatch(1, category, r1, ['a', 'b1', 'c1']))
     segmented.append(SegmentMatch(1, category, r2, ['a', 'b2', 'c2']))
-    fill_non_stacking_collab_scouting(scouting, segmented)
-    print(non_stacking_collab_target('a', segmented, scouting, probs))
+    al.fill_non_stacking_collab_scouting(scouting, segmented)
+    print(al.non_stacking_collab_target('a', segmented, scouting, probs))
 
 def other_stack_indivs_test():
     segmented = []
@@ -263,26 +263,26 @@ def other_stack_indivs_test():
     segmented.append(SegmentMatch(2, generic, 5, [team2, team3]))
     segmented.append(SegmentMatch(3, generic, 8, [team1, team3]))
     scouting = {}
-    fill_in_stacking_indiv_scouting(segmented, scouting)
-    contrs = get_stack_indiv_averages(segmented, scouting)
+    al.fill_in_stacking_indiv_scouting(segmented, scouting)
+    contrs = al.get_stack_indiv_averages(segmented, scouting)
     for team in contrs:
         print(team + ": " + contrs[team].__str__())
 
 def get_stack_indiv_averages_test():
     segmenter = StrongholdMatchSegmenter()
     event = "2016mihow"
-    segmented = get_segmented_competition(event, segmenter)
+    segmented = al.get_segmented_competition(event, segmenter)
     teleop_low_goal = Category(1, ScoreReq.INDIVIDUAL, MatchPhase.TELEOP, 'teleop low goal')
     teleop_high_goal = Category(1, ScoreReq.INDIVIDUAL, MatchPhase.TELEOP, 'teleop high goal')
     low_goal = segmented[teleop_low_goal]
     high_goal = segmented[teleop_high_goal]
     low_goal_scouting = {}
-    fill_in_stacking_indiv_scouting(low_goal_scouting, low_goal)
-    low_goal_contrs = get_stack_indiv_averages(low_goal, low_goal_scouting)
+    al.fill_in_stacking_indiv_scouting(low_goal_scouting, low_goal)
+    low_goal_contrs = al.get_stack_indiv_averages(low_goal, low_goal_scouting)
     
     high_goal_scouting = {}
-    fill_in_stacking_indiv_scouting(high_goal_scouting, high_goal)
-    high_goal_contrs = get_stack_indiv_averages(high_goal, high_goal_scouting)
+    al.fill_in_stacking_indiv_scouting(high_goal_scouting, high_goal)
+    high_goal_contrs = al.get_stack_indiv_averages(high_goal, high_goal_scouting)
 
     for team in high_goal_contrs:
         print(team + " Low goal: " + low_goal_contrs[team].__str__() + " High goal: " + high_goal_contrs[team].__str__())
@@ -292,9 +292,10 @@ def get_stack_indiv_averages_test():
 def fill_in_scouting_stacking_indiv_test(competition):
     segmenter = StrongholdMatchSegmenter()
     event = "2016mihow"
-    segmented = get_segmented_competition(event, segmenter)
+    segmented = al.get_segmented_competition(event, segmenter)
     teleop_low_goal = Category(1, ScoreReq.INDIVIDUAL, MatchPhase.TELEOP, 'teleop low goal')
     low_goal = segmented[teleop_low_goal]
     scouting = {}
-    fill_in_stacking_indiv_scouting(low_goal, scouting)
+    al.fill_in_stacking_indiv_scouting(low_goal, scouting)
     print(scouting)
+    

@@ -1,9 +1,6 @@
 #from ZScout import *
-from ScoreReq import ScoreReq
-from MatchPhase import MatchPhase
-from SegmentMatch import SegmentMatch
-from Category import Category
-#import Blue_Alliance_API
+import utils as ut
+import categories as cts
 
 class StrongholdMatchSegmenter:
 
@@ -18,11 +15,14 @@ class StrongholdMatchSegmenter:
         return result
 
     def partial_segment(self, number, score_breakdown, teams):
-        result = {}
-        teleop_low_goal_category = Category(1, ScoreReq.INDIVIDUAL, MatchPhase.TELEOP, 'teleop low goal')
-        result[teleop_low_goal_category] = SegmentMatch(number, teleop_low_goal_category, score_breakdown['teleopBouldersLow'], teams)
-
-        teleop_high_goal_category = Category(1, ScoreReq.INDIVIDUAL, MatchPhase.TELEOP, 'teleop high goal')
-        result[teleop_high_goal_category] = SegmentMatch(number, teleop_high_goal_category, score_breakdown['teleopBouldersHigh'], teams)
-        return result
+#        result = {}
+#        
+#        result[cts.STRONGHOLD_AUTON_LOW_BOULDERS] = SegmentMatch(number, cts.STRONGHOLD_AUTON_LOW_BOULDERS, score_breakdown['teleopBouldersLow'], teams)
+#
+#        result[cts.STRONGHOLD_AUTON_LOW_BOULDERS] = SegmentMatch(number, teleop_high_goal_category, score_breakdown['teleopBouldersHigh'], teams)
+#
+#        result[cts.STRONGHOLD_AUTON_LOW_BOULDERS] = SegmentMatch(number, auton_low_goal_category, score_breakdown['autoBouldersLow'], teams)
+#
+#        result[cts.STRONGHOLD_AUTON_LOW_BOULDERS] = SegmentMatch(number, auton_high_goal_category, score_breakdown['autoBouldersHigh'], teams)
+        return ut.get_segment_match_map(number, score_breakdown, teams, cts.STRONGHOLD_CATEGORIES)
         
